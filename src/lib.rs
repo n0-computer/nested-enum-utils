@@ -160,6 +160,48 @@ impl Parse for EnumConversionsArgs {
     }
 }
 
+/// Derive macro that generates conversions between an enum and its variants and other types.
+///
+/// The macro can be used as follows:
+///
+/// ```rust
+/// use nested_enum_utils::enum_conversions;
+///
+/// #[enum_conversions()]
+/// enum MyEnum {
+///     Variant1(u32),
+///     Variant2(String),
+/// }
+/// ```
+///
+/// This will create From instances from each variant type to the enum and TryFrom instances from the enum to each variant type.
+///
+/// The macro also accepts a list of target types to generate conversions to:
+///
+/// ```rust
+/// use nested_enum_utils::enum_conversions;
+///
+/// #[enum_conversions(Outer)]
+/// enum Inner {
+///     Variant1(u32),
+///     Variant2(String),
+/// }
+///
+/// #[enum_conversions()]
+/// enum Outer {
+///     Inner1(Inner),
+///     // other variants
+/// }
+/// ```
+///
+/// This will, in addition, generate From instances from each variant type to the outer enum and TryFrom instances from the outer enum to each variant type.
+/// The conversion to the outer enum relies on conversions between the inner enum and the outer enum, which is provided by the
+/// enum_conversions attribute on the Outer enum.
+///
+/// Rules:
+///
+/// - enums must have unnamed single fields
+/// - field types must be distinct
 #[proc_macro_attribute]
 pub fn enum_conversions(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as EnumConversionsArgs);
@@ -190,25 +232,5 @@ pub fn enum_conversions(attr: TokenStream, item: TokenStream) -> TokenStream {
         #input
         #all_conversions
     };
-    TokenStream::from(expanded)
-}
-
-#[proc_macro_derive(EnumConversions)]
-pub fn derive_enum_conversions(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let enum_name = &input.ident;
-
-    let variants = match extract_enum_variants(&input) {
-        Ok(v) => v,
-        Err(e) => return e.to_compile_error().into(),
-    };
-
-    let self_conversions = generate_enum_self_conversions(enum_name, &variants);
-
-    let expanded = quote! {
-        #input
-        #self_conversions
-    };
-
     TokenStream::from(expanded)
 }
