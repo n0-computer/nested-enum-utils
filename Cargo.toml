@@ -1,7 +1,7 @@
 [package]
 name = "nested_enum_utils"
-version = "0.1.0"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 readme = "README.md"
 description = "Macros to provide conversions for nested enums"
 license = "MIT OR Apache-2.0"
