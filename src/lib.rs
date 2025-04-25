@@ -2,13 +2,12 @@ use std::collections::BTreeSet;
 
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    braced,
+    Data, DeriveInput, Fields, Ident, ItemEnum, ItemStruct, Token, Type, Variant, braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    Data, DeriveInput, Fields, Ident, ItemEnum, ItemStruct, Token, Type, Variant,
 };
 
 fn extract_enum_variants(input: &DeriveInput) -> syn::Result<Vec<(&syn::Ident, &syn::Type)>> {
@@ -330,6 +329,11 @@ pub fn common_fields(attr: TokenStream, item: TokenStream) -> TokenStream {
             for field in common_fields.iter() {
                 fields.named.push(field.clone());
             }
+        } else {
+            let error_lit = Literal::string("Expected named variants in enum");
+            return TokenStream::from(quote! {
+                compile_error!(#error_lit);
+            });
         }
     }
 
