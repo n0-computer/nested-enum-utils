@@ -1,4 +1,4 @@
-use nested_enum_utils::enum_conversions;
+use nested_enum_utils::{common_fields, enum_conversions};
 
 #[test]
 fn test_single_enum() {
@@ -82,4 +82,15 @@ fn test_deeply_nested_enums() {
 fn compile_fail() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/compile_fail/*.rs");
+}
+
+#[test]
+fn test_common_fields() {
+    #[common_fields({ id: u64 })]
+    #[allow(dead_code)]
+    enum Test {
+        A { x: u32 },
+        B { y: String },
+    }
+    let _v = Test::A { x: 42, id: 1 };
 }
