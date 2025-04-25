@@ -1,13 +1,14 @@
 use std::collections::BTreeSet;
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Literal, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
 use syn::{
+    braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    Data, DeriveInput, Fields, Ident, Token, Type, Variant,
+    Data, DeriveInput, Fields, Ident, ItemEnum, ItemStruct, Token, Type, Variant,
 };
 
 fn extract_enum_variants(input: &DeriveInput) -> syn::Result<Vec<(&syn::Ident, &syn::Type)>> {
@@ -233,4 +234,107 @@ pub fn enum_conversions(attr: TokenStream, item: TokenStream) -> TokenStream {
         #all_conversions
     };
     TokenStream::from(expanded)
+}
+// Custom struct to parse arbitrary content inside the attribute brackets
+struct CommonCode {
+    content: TokenStream2,
+}
+
+impl Parse for CommonCode {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        // Parse everything between the braces as a raw token stream
+        let content;
+        braced!(content in input);
+        let content = content.parse()?;
+        Ok(CommonCode { content })
+    }
+}
+
+/// Usage example:
+///
+/// #[common_fields({
+///   /// Common size field for all variants
+///   #[serde(default)]
+///   pub size: u64
+/// })]
+/// enum Test {
+///   A { }
+///   B { x: bool }
+/// }
+///
+/// Becomes:
+///
+/// enum Test {
+///   A {
+///     /// Common size field for all variants
+///     #[serde(default)]
+///     pub size: u64
+///   }
+///   B {
+///     x: bool,
+///     /// Common size field for all variants
+///     #[serde(default)]
+///     pub size: u64
+///   }
+/// }
+#[proc_macro_attribute]
+pub fn common_fields(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the common code from the attribute
+    let common_code = parse_macro_input!(attr as CommonCode);
+    let common_fields_tokens = common_code.content;
+
+    // Parse the input enum
+    let mut input_enum = parse_macro_input!(item as ItemEnum);
+
+    // Parse common fields by creating a temporary struct
+    let temp_struct_tokens = quote! {
+        struct TempStruct {
+            #common_fields_tokens
+        }
+    };
+
+    // Parse the temporary struct
+    let temp_struct: Result<ItemStruct, syn::Error> = syn::parse2(temp_struct_tokens);
+
+    // Check for parsing errors
+    if let Err(err) = temp_struct {
+        // Create a literal from the error message string
+        let error_string = err.to_string();
+        let error_lit = Literal::string(&error_string);
+
+        return TokenStream::from(quote! {
+            compile_error!(#error_lit);
+        });
+    }
+
+    // Unwrap the struct now that we know it's Ok
+    let temp_struct = temp_struct.unwrap();
+
+    // Extract fields from the temporary struct
+    let common_fields = match temp_struct.fields {
+        Fields::Named(named) => named.named,
+        _ => {
+            let error_lit = Literal::string("Expected named fields in common code block");
+            return TokenStream::from(quote! {
+                compile_error!(#error_lit);
+            });
+        }
+    };
+
+    // Process each variant of the enum
+    for variant in &mut input_enum.variants {
+        // We only care about struct variants (named fields)
+        if let Fields::Named(ref mut fields) = variant.fields {
+            // Add each common field to this variant
+            for field in common_fields.iter() {
+                fields.named.push(field.clone());
+            }
+        }
+    }
+
+    // Return the updated enum
+    quote! {
+        #input_enum
+    }
+    .into()
 }
