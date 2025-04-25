@@ -199,7 +199,7 @@ impl Parse for EnumConversionsArgs {
 /// The conversion to the outer enum relies on conversions between the inner enum and the outer enum, which is provided by the
 /// enum_conversions attribute on the Outer enum.
 ///
-/// Rules:
+/// Limitations:
 ///
 /// - enums must have unnamed single fields
 /// - field types must be distinct
@@ -235,6 +235,7 @@ pub fn enum_conversions(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     TokenStream::from(expanded)
 }
+
 // Custom struct to parse arbitrary content inside the attribute brackets
 struct CommonCode {
     content: TokenStream2,
