@@ -1,6 +1,6 @@
 [package]
 name = "nested_enum_utils"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 readme = "README.md"
 description = "Macros to provide conversions for nested enums"
