@@ -155,7 +155,7 @@ struct EnumConversionsArgs {
 impl Parse for EnumConversionsArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         Ok(EnumConversionsArgs {
-            target_types: Punctuated::parse_terminated(input)?,
+            target_types: input.parse_terminated(Type::parse, Token![,])?,
         })
     }
 }
